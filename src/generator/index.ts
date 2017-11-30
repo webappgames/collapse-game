@@ -1,4 +1,5 @@
 import * as BABYLON from 'babylonjs';
+import * as GridBuilding from 'gridbuilding';
 import World from '../world/World';
 import Brick from '../world/Brick';
 
@@ -7,67 +8,44 @@ export default class WorldGenerator{
         private world:World
     ){}
 
-    generateWorld(){
+    generateWorld() {
 
-        //----------------------------------Domino
-        /*for (let i = 0; i < 7; i++) {
-
-            new Brick(
-                this.world,
-                'stone-plain',
-                {mass:500,restitution:0.4},
-                new BABYLON.Vector3(2,40,10),
-                new BABYLON.Vector3(i*25+50, 15, 100)
-            );
-        }*/
-        //----------------------------------
-
-
-        //----------------------------------Building
-        const floors = 8;
-        const size = new BABYLON.Vector3(50,10,50);
-        const pillsInFloor = 5;
-        const pillsThick = 0.25;
 
 
         const center = new BABYLON.Vector3(
             0,
-            -10,
-            70
+            0,
+            50
         );
 
-        for (let floor = 1; floor < floors; floor++) {
+        const FLOOR = `       
++:::+:::+
+:::::::::
++:::+:::+
+::::::::|
++:::+---+
+`;
+
+        const building = GridBuilding.Building.fromFloorStrings([
+            FLOOR,
+            FLOOR,
+            FLOOR,
+            FLOOR,
+            FLOOR,
+            FLOOR,
+            FLOOR
+        ]);
+
+        building.getBricks().forEach((brick) => {
 
             new Brick(
                 this.world,
                 'stone-plain',
-                {mass:100, restitution: 0.01},
-                new BABYLON.Vector3(size.x, 1, size.z),
-                center.add(new BABYLON.Vector3(0, floor * 10 + 9.5, 0))
+                {mass:200, restitution: 0.01},
+                new BABYLON.Vector3(brick.size.x, brick.size.z, brick.size.y),
+                new BABYLON.Vector3(brick.center.x, brick.center.z, brick.center.y).add(center)
             );
-
-            for (let pillX = 0; pillX < pillsInFloor; pillX++) {
-                for (let pillY = 0; pillY < pillsInFloor; pillY++) {
-
-                    new Brick(
-                        this.world,
-                        'stone-plain',
-                        {mass:200, restitution: 0.01},
-                        new BABYLON.Vector3(
-                            size.x / pillsInFloor * pillsThick,
-                            9,
-                            size.z / pillsInFloor * pillsThick
-                        ),
-                        center.add(new BABYLON.Vector3(
-                            (pillX / (pillsInFloor - 1) - .5) * size.x * (1 - 1 / pillsInFloor * pillsThick),
-                            floor * 10 + 4.5,
-                            (pillY / (pillsInFloor - 1) - .5) * size.z * (1 - 1 / pillsInFloor * pillsThick)
-                        ))
-                    );
-                }
-            }
-        }
-        //----------------------------------
+        });
 
     }
 }
