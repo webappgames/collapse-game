@@ -1,9 +1,11 @@
 import * as BABYLON from 'babylonjs';
-import {Vector2} from 'gridbuilding';
+//import {Vector2} from 'gridbuilding';
+import TouchController from './TouchController';
+import {ITouch, ITouchPoint} from './TouchController';
 import Player from './index';
 import Brick from '../../world/Brick';
 
-
+/*
 function groupArray<T>(array: T[], inGroup: number): T[][] {
 
     //todo test inGroup
@@ -22,19 +24,26 @@ function groupArray<T>(array: T[], inGroup: number): T[][] {
 
     return result;
 
-}
+}*/
 
 
-function throwBrick(player: Player, path: Vector2[]){
+function throwBrick(player: Player, path: ITouchPoint[]) {
 
     //const x = (event.clientX / document.documentElement.clientWidth)-.5;
     //const y = (event.clientY / document.documentElement.clientHeight)-.5;
 
 
-    const length = groupArray(path, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
-    const delta = path[path.length - 1].subtract(path[0]);
+    /*const length = groupArray(path, 2).reduce(
+
+        (sum:number, currentValue:ITouchPoint[]) => sum + Math.sqrt(Math.pow(currentValue[0].,2)+Math.pow(,2))
+
+        , 0);*/
+    //const delta = path[path.length - 1].subtract(path[0]);
 
     //console.log(length);
+
+    const length = 2;
+    const delta = {x: 0, y: 0};
 
 
     new Brick(
@@ -44,7 +53,7 @@ function throwBrick(player: Player, path: Vector2[]){
         new BABYLON.Vector3(2, 2, 2),
         player.mesh.position.add(player.direction1),
         BABYLON.Vector3.Zero(),
-        player.direction1.scale(length*100).add(new BABYLON.Vector3(
+        player.direction1.scale(length * 100).add(new BABYLON.Vector3(
             100 * delta.x,
             100 * -delta.y,
             0
@@ -58,11 +67,14 @@ function throwBrick(player: Player, path: Vector2[]){
 }
 
 
-
 export default function setPlayerAction(player: Player) {
 
 
-    let pointerDown: boolean = false;
+    const touchController = new TouchController(player.world.canvasElement);
+    touchController.subscribe((touch: ITouch) => throwBrick(player, touch.points));
+
+
+    /*let pointerDown: boolean = false;
     let path: Vector2[];
 
 
@@ -99,6 +111,6 @@ export default function setPlayerAction(player: Player) {
         (event) => {
             throwBrick(player,path);
         });
-
+    */
 
 }
