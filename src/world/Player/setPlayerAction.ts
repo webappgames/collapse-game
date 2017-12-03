@@ -1,11 +1,11 @@
 import * as BABYLON from 'babylonjs';
 //import {Vector2} from 'gridbuilding';
 import TouchController from './TouchController';
-import {ITouch, ITouchPoint} from './TouchController';
+//import {TimeVector2} from './TouchController';
 import Player from './index';
 import Brick from '../../world/Brick';
 
-/*
+
 function groupArray<T>(array: T[], inGroup: number): T[][] {
 
     //todo test inGroup
@@ -24,54 +24,51 @@ function groupArray<T>(array: T[], inGroup: number): T[][] {
 
     return result;
 
-}*/
-
-
-function throwBrick(player: Player, path: ITouchPoint[]) {
-
-    //const x = (event.clientX / document.documentElement.clientWidth)-.5;
-    //const y = (event.clientY / document.documentElement.clientHeight)-.5;
-
-
-    /*const length = groupArray(path, 2).reduce(
-
-        (sum:number, currentValue:ITouchPoint[]) => sum + Math.sqrt(Math.pow(currentValue[0].,2)+Math.pow(,2))
-
-        , 0);*/
-    //const delta = path[path.length - 1].subtract(path[0]);
-
-    //console.log(length);
-
-    const length = 2;
-    const delta = {x: 0, y: 0};
-
-
-    new Brick(
-        player.world,
-        'clay-bricks',
-        {mass: 5000, restitution: 0.5},
-        new BABYLON.Vector3(2, 2, 2),
-        player.mesh.position.add(player.direction1),
-        BABYLON.Vector3.Zero(),
-        player.direction1.scale(length * 100).add(new BABYLON.Vector3(
-            100 * delta.x,
-            100 * -delta.y,
-            0
-        )),
-        new BABYLON.Vector3(
-            (Math.random() - .5) * Math.PI * 10,
-            (Math.random() - .5) * Math.PI * 10,
-            (Math.random() - .5) * Math.PI * 10
-        )
-    );
 }
+
 
 
 export default function setPlayerAction(player: Player) {
 
 
     const touchController = new TouchController(player.world.canvasElement);
-    touchController.subscribe((touch: ITouch) => throwBrick(player, touch.points));
+    touchController.subscribe((touch) => console.log(touch));
+    touchController.subscribe((touch) => {
+
+        //const x = (event.clientX / document.documentElement.clientWidth)-.5;
+        //const y = (event.clientY / document.documentElement.clientHeight)-.5;
+
+
+
+
+        const length = groupArray(touch.points, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
+        const delta = touch.points[touch.points.length - 1].subtract(touch.points[0]);
+
+
+
+
+
+
+        new Brick(
+            player.world,
+            'clay-bricks',
+            {mass: 5000, restitution: 0.5},
+            new BABYLON.Vector3(2, 2, 2),
+            player.mesh.position.add(player.direction1),
+            BABYLON.Vector3.Zero(),
+            player.direction1.scale(length * 100).add(new BABYLON.Vector3(
+                200 * delta.x,
+                200 * -delta.y,
+                0
+            )),
+            new BABYLON.Vector3(
+                (Math.random() - .5) * Math.PI * 10,
+                (Math.random() - .5) * Math.PI * 10,
+                (Math.random() - .5) * Math.PI * 10
+            )
+        );
+    });
+
 
 
     /*let pointerDown: boolean = false;

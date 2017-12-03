@@ -1,16 +1,70 @@
 //import {Vector2} from 'gridbuilding';
 
 
-export interface ITouch {
-    id: string;
-    //finished: boolean;
-    points: ITouchPoint[];
+export class Vector2 {
+    constructor(public x: number,
+                public y: number) {
+    }
+
+    static Zero() {
+        return new Vector2(0, 0);
+    }
+
+    add(vector3: Vector2): Vector2 {
+        return new Vector2(
+            this.x + vector3.x,
+            this.y + vector3.y
+        );
+    }
+
+    subtract(vector3: Vector2): Vector2 {
+        return new Vector2(
+            this.x - vector3.x,
+            this.y - vector3.y
+        );
+    }
+
+    scale(scale: number): Vector2 {
+        return new Vector2(
+            this.x * scale,
+            this.y * scale
+        );
+    }
+
+    length(vector2: Vector2 = Vector2.Zero()): number {
+        return Math.sqrt(
+            Math.pow(this.x - vector2.x, 2) +
+            Math.pow(this.y - vector2.y, 2)
+        )
+    }
+
+    toArray(): [number, number] {
+        return [this.x, this.y];
+    }
 }
 
-export interface ITouchPoint {
-    x: number;
-    y: number;
-    t: number;
+
+export class TimeVector2 extends Vector2 {
+    constructor(x: number,
+                y: number,
+                public t: number) {
+        super(x, y);
+    }
+
+    static Zero() {
+        return new TimeVector2(0, 0, 0);
+    }
+
+}
+
+
+export interface ITouch {
+    id: string;
+    type: 'TOUCH' | 'MOUSE';
+    start: number;//todo Date
+    //maybe todo element: HTMLElement;
+    //finished: boolean;
+    points: TimeVector2[];
 }
 
 
@@ -56,6 +110,9 @@ export default class TouchController {
         for (let i = 0, l = touches.length; i < l; i++) {
             this.ongoingTouches.push({
                 id: 'touch' + touches[i].identifier,
+                type: 'TOUCH',
+                start: performance.now(),//new Date,
+                //element: this.element,
                 points: []
             });
         }
@@ -70,11 +127,11 @@ export default class TouchController {
             if (index !== -1) {
                 //console.log("continuing touch " + index);
 
-                this.ongoingTouches[index].points.push({
-                    x: touches[i].clientX,
-                    y: touches[i].clientY,
-                    t: performance.now()
-                });
+                this.ongoingTouches[index].points.push(new TimeVector2(
+                    touches[i].clientX / this.element.clientWidth,
+                    touches[i].clientY / this.element.clientHeight,
+                    performance.now()
+                ));
 
                 //ongoingTouches.splice(index, 1, copyTouch(touches[i])); // swap in the new touch record
             } else {
@@ -118,6 +175,9 @@ export default class TouchController {
         //todo DRY
         this.ongoingTouches.push({
             id: 'mouse',//todo mouse button
+            type: 'MOUSE',
+            start: performance.now(),//new Date,
+            //element: this.element,
             points: []
         });
 
@@ -130,15 +190,15 @@ export default class TouchController {
         const index = this._ongoingTouchIndexById('mouse');
         if (index !== -1) {
 
-            this.ongoingTouches[index].points.push({
-                x: event.clientX,
-                y: event.clientY,
-                t: performance.now()
-            });
+            this.ongoingTouches[index].points.push(new TimeVector2(
+                event.clientX / this.element.clientWidth,
+                event.clientY / this.element.clientHeight,
+                performance.now() - this.ongoingTouches[index].start
+            ));
 
             //ongoingTouches.splice(index, 1, copyTouch(touches[i])); // swap in the new touch record
         } else {
-            console.log("can't figure out which touch to continue");
+            //console.log("can't figure out which touch to continue");
         }
 
     }
