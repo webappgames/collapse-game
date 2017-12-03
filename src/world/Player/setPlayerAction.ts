@@ -25,6 +25,40 @@ function groupArray<T>(array: T[], inGroup: number): T[][] {
 }
 
 
+function throwBrick(player: Player, path: Vector2[]){
+
+    //const x = (event.clientX / document.documentElement.clientWidth)-.5;
+    //const y = (event.clientY / document.documentElement.clientHeight)-.5;
+
+
+    const length = groupArray(path, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
+    const delta = path[path.length - 1].subtract(path[0]);
+
+    //console.log(length);
+
+
+    new Brick(
+        player.world,
+        'clay-bricks',
+        {mass: 5000, restitution: 0.5},
+        new BABYLON.Vector3(2, 2, 2),
+        player.mesh.position.add(player.direction1),
+        BABYLON.Vector3.Zero(),
+        player.direction1.scale(length*100).add(new BABYLON.Vector3(
+            100 * delta.x,
+            100 * -delta.y,
+            0
+        )),
+        new BABYLON.Vector3(
+            (Math.random() - .5) * Math.PI * 10,
+            (Math.random() - .5) * Math.PI * 10,
+            (Math.random() - .5) * Math.PI * 10
+        )
+    );
+}
+
+
+
 export default function setPlayerAction(player: Player) {
 
 
@@ -63,38 +97,7 @@ export default function setPlayerAction(player: Player) {
     player.world.canvasElement.addEventListener(
         "pointerup",
         (event) => {
-
-
-            //const x = (event.clientX / document.documentElement.clientWidth)-.5;
-            //const y = (event.clientY / document.documentElement.clientHeight)-.5;
-
-
-            const length = groupArray(path, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
-            const delta = path[path.length - 1].subtract(path[0]);
-
-            //console.log(length);
-
-
-            new Brick(
-                player.world,
-                'clay-bricks',
-                {mass: 5000, restitution: 0.5},
-                new BABYLON.Vector3(2, 2, 2),
-                player.mesh.position.add(player.direction1),
-                BABYLON.Vector3.Zero(),
-                player.direction1.scale(length*100).add(new BABYLON.Vector3(
-                    100 * delta.x,
-                    100 * -delta.y,
-                    0
-                )),
-                new BABYLON.Vector3(
-                    (Math.random() - .5) * Math.PI * 10,
-                    (Math.random() - .5) * Math.PI * 10,
-                    (Math.random() - .5) * Math.PI * 10
-                )
-            );
-
-
+            throwBrick(player,path);
         });
 
 
