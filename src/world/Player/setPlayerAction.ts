@@ -57,8 +57,8 @@ export default function setPlayerAction(player: Player) {
             player.mesh.position.add(player.direction1),
             BABYLON.Vector3.Zero(),
             player.direction1.scale(length * 100).add(new BABYLON.Vector3(
-                200 * delta.x,
-                200 * -delta.y,
+                100 * delta.x,
+                100 * -delta.y,
                 0
             )),
             new BABYLON.Vector3(

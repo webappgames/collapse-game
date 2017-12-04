@@ -16,24 +16,33 @@ export default class WorldGenerator{
             0,
             0,
             50
-        );
+        ).add(new BABYLON.Vector3(
+           20,
+           0,
+           20
+        ));
 
-        const FLOOR = `       
+        const FLOOR1 = `       
 +:::+:::+
 :::::::::
 +:::+:::+
-::::::::|
-+:::+---+
+:::::::::
++:::+:::+
+`;
+
+        const FLOOR2 = `       
+----|----
+|:::|:::|
+|-------|
+|:::|:::|
+----|----
 `;
 
         const building = GridBuilding.Building.fromFloorStrings([
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR
+            FLOOR1,
+            FLOOR1,
+            FLOOR1,
+            FLOOR2,
         ]);
 
         building.getBricks().forEach((brick) => {
@@ -41,7 +50,7 @@ export default class WorldGenerator{
             new Brick(
                 this.world,
                 'stone-plain',
-                {mass:200, restitution: 0.01},
+                {mass:200, restitution: 0.001},
                 new BABYLON.Vector3(brick.size.x, brick.size.z, brick.size.y),
                 new BABYLON.Vector3(brick.center.x, brick.center.z, brick.center.y).add(center)
             );

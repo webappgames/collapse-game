@@ -11,7 +11,7 @@ export default function createGroundMesh(
     groundMesh.physicsImpostor = new BABYLON.PhysicsImpostor(
         groundMesh,
         BABYLON.PhysicsImpostor.BoxImpostor,
-        { mass: 0, restitution: 0.1},
+        { mass: 0, restitution: 1},
         scene
     );
     return groundMesh;
