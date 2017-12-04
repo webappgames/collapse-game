@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "/collapse-game/";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 24);
+/******/ 	return __webpack_require__(__webpack_require__.s = 25);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -68305,6 +68305,598 @@ if (((typeof window != "undefined" && window.module) || (typeof module != "undef
 
 /***/ }),
 /* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var asap = __webpack_require__(5);
+
+function noop() {}
+
+// States:
+//
+// 0 - pending
+// 1 - fulfilled with _value
+// 2 - rejected with _value
+// 3 - adopted the state of another promise, _value
+//
+// once the state is no longer pending (0) it is immutable
+
+// All `_` prefixed properties will be reduced to `_{random number}`
+// at build time to obfuscate them and discourage their use.
+// We don't use symbols or Object.defineProperty to fully hide them
+// because the performance isn't good enough.
+
+
+// to avoid using try/catch inside critical functions, we
+// extract them to here.
+var LAST_ERROR = null;
+var IS_ERROR = {};
+function getThen(obj) {
+  try {
+    return obj.then;
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
+  }
+}
+
+function tryCallOne(fn, a) {
+  try {
+    return fn(a);
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
+  }
+}
+function tryCallTwo(fn, a, b) {
+  try {
+    fn(a, b);
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
+  }
+}
+
+module.exports = Promise;
+
+function Promise(fn) {
+  if (typeof this !== 'object') {
+    throw new TypeError('Promises must be constructed via new');
+  }
+  if (typeof fn !== 'function') {
+    throw new TypeError('not a function');
+  }
+  this._45 = 0;
+  this._81 = 0;
+  this._65 = null;
+  this._54 = null;
+  if (fn === noop) return;
+  doResolve(fn, this);
+}
+Promise._10 = null;
+Promise._97 = null;
+Promise._61 = noop;
+
+Promise.prototype.then = function(onFulfilled, onRejected) {
+  if (this.constructor !== Promise) {
+    return safeThen(this, onFulfilled, onRejected);
+  }
+  var res = new Promise(noop);
+  handle(this, new Handler(onFulfilled, onRejected, res));
+  return res;
+};
+
+function safeThen(self, onFulfilled, onRejected) {
+  return new self.constructor(function (resolve, reject) {
+    var res = new Promise(noop);
+    res.then(resolve, reject);
+    handle(self, new Handler(onFulfilled, onRejected, res));
+  });
+};
+function handle(self, deferred) {
+  while (self._81 === 3) {
+    self = self._65;
+  }
+  if (Promise._10) {
+    Promise._10(self);
+  }
+  if (self._81 === 0) {
+    if (self._45 === 0) {
+      self._45 = 1;
+      self._54 = deferred;
+      return;
+    }
+    if (self._45 === 1) {
+      self._45 = 2;
+      self._54 = [self._54, deferred];
+      return;
+    }
+    self._54.push(deferred);
+    return;
+  }
+  handleResolved(self, deferred);
+}
+
+function handleResolved(self, deferred) {
+  asap(function() {
+    var cb = self._81 === 1 ? deferred.onFulfilled : deferred.onRejected;
+    if (cb === null) {
+      if (self._81 === 1) {
+        resolve(deferred.promise, self._65);
+      } else {
+        reject(deferred.promise, self._65);
+      }
+      return;
+    }
+    var ret = tryCallOne(cb, self._65);
+    if (ret === IS_ERROR) {
+      reject(deferred.promise, LAST_ERROR);
+    } else {
+      resolve(deferred.promise, ret);
+    }
+  });
+}
+function resolve(self, newValue) {
+  // Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
+  if (newValue === self) {
+    return reject(
+      self,
+      new TypeError('A promise cannot be resolved with itself.')
+    );
+  }
+  if (
+    newValue &&
+    (typeof newValue === 'object' || typeof newValue === 'function')
+  ) {
+    var then = getThen(newValue);
+    if (then === IS_ERROR) {
+      return reject(self, LAST_ERROR);
+    }
+    if (
+      then === self.then &&
+      newValue instanceof Promise
+    ) {
+      self._81 = 3;
+      self._65 = newValue;
+      finale(self);
+      return;
+    } else if (typeof then === 'function') {
+      doResolve(then.bind(newValue), self);
+      return;
+    }
+  }
+  self._81 = 1;
+  self._65 = newValue;
+  finale(self);
+}
+
+function reject(self, newValue) {
+  self._81 = 2;
+  self._65 = newValue;
+  if (Promise._97) {
+    Promise._97(self, newValue);
+  }
+  finale(self);
+}
+function finale(self) {
+  if (self._45 === 1) {
+    handle(self, self._54);
+    self._54 = null;
+  }
+  if (self._45 === 2) {
+    for (var i = 0; i < self._54.length; i++) {
+      handle(self, self._54[i]);
+    }
+    self._54 = null;
+  }
+}
+
+function Handler(onFulfilled, onRejected, promise){
+  this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+  this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+  this.promise = promise;
+}
+
+/**
+ * Take a potentially misbehaving resolver function and make sure
+ * onFulfilled and onRejected are only called once.
+ *
+ * Makes no guarantees about asynchrony.
+ */
+function doResolve(fn, promise) {
+  var done = false;
+  var res = tryCallTwo(fn, function (value) {
+    if (done) return;
+    done = true;
+    resolve(promise, value);
+  }, function (reason) {
+    if (done) return;
+    done = true;
+    reject(promise, reason);
+  })
+  if (!done && res === IS_ERROR) {
+    done = true;
+    reject(promise, LAST_ERROR);
+  }
+}
+
+
+/***/ }),
+/* 2 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
+
+var Brick = (function () {
+    function Brick(_world, _materialName, _physicalProperties, _size, _position, _rotation, _linearVelocity, _angularVelocity) {
+        if (_rotation === void 0) { _rotation = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
+        if (_linearVelocity === void 0) { _linearVelocity = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
+        if (_angularVelocity === void 0) { _angularVelocity = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
+        this._world = _world;
+        this._materialName = _materialName;
+        this._physicalProperties = _physicalProperties;
+        this._size = _size;
+        this._position = _position;
+        this._rotation = _rotation;
+        this._linearVelocity = _linearVelocity;
+        this._angularVelocity = _angularVelocity;
+        this.createBabylonMesh();
+        this._world.bricks.push(this);
+        this.mesh.position = this._position;
+        this.mesh.rotation = this._rotation;
+        this.mesh.physicsImpostor.setLinearVelocity(this._linearVelocity);
+        this.mesh.physicsImpostor.setAngularVelocity(this._angularVelocity);
+    }
+    Object.defineProperty(Brick.prototype, "position", {
+        get: function () {
+            return this._position;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Brick.prototype, "rotation", {
+        get: function () {
+            return this.mesh.rotationQuaternion.toEulerAngles();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Brick.prototype, "linearVelocity", {
+        get: function () {
+            return this.mesh.physicsImpostor.getLinearVelocity();
+        },
+        set: function (linearVelocity) {
+            this.mesh.physicsImpostor.setLinearVelocity(linearVelocity);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Brick.prototype, "angularVelocity", {
+        get: function () {
+            return this.mesh.physicsImpostor.getAngularVelocity();
+        },
+        set: function (angularVelocity) {
+            this.mesh.physicsImpostor.setAngularVelocity(angularVelocity);
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Brick.prototype.createBabylonMesh = function () {
+        var globalScale = 10;
+        var width = this._size.x;
+        var height = this._size.y;
+        var depth = this._size.z;
+        var faceUV = [
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, width / globalScale, height / globalScale),
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, width / globalScale, height / globalScale),
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, height / globalScale, depth / globalScale),
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, height / globalScale, depth / globalScale),
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, depth / globalScale, width / globalScale),
+            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, depth / globalScale, width / globalScale),
+        ];
+        var meshOptions = { width: width, height: height, depth: depth, faceUV: faceUV };
+        this.mesh = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["MeshBuilder"].CreateBox('BoxBrick', meshOptions, this._world.scene);
+        this.mesh.material = this._world.materialFactory.getMaterial(this._materialName);
+        this.mesh.physicsImpostor = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"](this.mesh, __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"].BoxImpostor, this._physicalProperties, this._world.scene);
+    };
+    return Brick;
+}());
+/* harmony default export */ __webpack_exports__["a"] = (Brick);
+
+
+/***/ }),
+/* 3 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+// @remove-on-eject-begin
+/**
+ * Copyright (c) 2015-present, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ */
+// @remove-on-eject-end
+
+
+if (typeof Promise === 'undefined') {
+  // Rejection tracking prevents a common issue where React gets into an
+  // inconsistent state due to an error, but it gets swallowed by a Promise,
+  // and the user has no idea what causes React's erratic future behavior.
+  __webpack_require__(10).enable();
+  window.Promise = __webpack_require__(9);
+}
+
+// fetch() polyfill for making API calls.
+__webpack_require__(24);
+
+// Object.assign() is commonly used with React.
+// It will use the native implementation if it's present and isn't buggy.
+Object.assign = __webpack_require__(8);
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__world_World__ = __webpack_require__(22);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__index_css__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__index_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__index_css__);
+
+
+var canvasElement = document.getElementById("scene");
+var world = new __WEBPACK_IMPORTED_MODULE_0__world_World__["a" /* default */](canvasElement);
+world.run();
+console.log(world);
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+/* WEBPACK VAR INJECTION */(function(global) {
+
+// Use the fastest means possible to execute a task in its own turn, with
+// priority over other events including IO, animation, reflow, and redraw
+// events in browsers.
+//
+// An exception thrown by a task will permanently interrupt the processing of
+// subsequent tasks. The higher level `asap` function ensures that if an
+// exception is thrown by a task, that the task queue will continue flushing as
+// soon as possible, but if you use `rawAsap` directly, you are responsible to
+// either ensure that no exceptions are thrown from your task, or to manually
+// call `rawAsap.requestFlush` if an exception is thrown.
+module.exports = rawAsap;
+function rawAsap(task) {
+    if (!queue.length) {
+        requestFlush();
+        flushing = true;
+    }
+    // Equivalent to push, but avoids a function call.
+    queue[queue.length] = task;
+}
+
+var queue = [];
+// Once a flush has been requested, no further calls to `requestFlush` are
+// necessary until the next `flush` completes.
+var flushing = false;
+// `requestFlush` is an implementation-specific method that attempts to kick
+// off a `flush` event as quickly as possible. `flush` will attempt to exhaust
+// the event queue before yielding to the browser's own event loop.
+var requestFlush;
+// The position of the next task to execute in the task queue. This is
+// preserved between calls to `flush` so that it can be resumed if
+// a task throws an exception.
+var index = 0;
+// If a task schedules additional tasks recursively, the task queue can grow
+// unbounded. To prevent memory exhaustion, the task queue will periodically
+// truncate already-completed tasks.
+var capacity = 1024;
+
+// The flush function processes all tasks that have been scheduled with
+// `rawAsap` unless and until one of those tasks throws an exception.
+// If a task throws an exception, `flush` ensures that its state will remain
+// consistent and will resume where it left off when called again.
+// However, `flush` does not make any arrangements to be called again if an
+// exception is thrown.
+function flush() {
+    while (index < queue.length) {
+        var currentIndex = index;
+        // Advance the index before calling the task. This ensures that we will
+        // begin flushing on the next task the task throws an error.
+        index = index + 1;
+        queue[currentIndex].call();
+        // Prevent leaking memory for long chains of recursive calls to `asap`.
+        // If we call `asap` within tasks scheduled by `asap`, the queue will
+        // grow, but to avoid an O(n) walk for every task we execute, we don't
+        // shift tasks off the queue after they have been executed.
+        // Instead, we periodically shift 1024 tasks off the queue.
+        if (index > capacity) {
+            // Manually shift all values starting at the index back to the
+            // beginning of the queue.
+            for (var scan = 0, newLength = queue.length - index; scan < newLength; scan++) {
+                queue[scan] = queue[scan + index];
+            }
+            queue.length -= index;
+            index = 0;
+        }
+    }
+    queue.length = 0;
+    index = 0;
+    flushing = false;
+}
+
+// `requestFlush` is implemented using a strategy based on data collected from
+// every available SauceLabs Selenium web driver worker at time of writing.
+// https://docs.google.com/spreadsheets/d/1mG-5UYGup5qxGdEMWkhP6BWCz053NUb2E1QoUTU16uA/edit#gid=783724593
+
+// Safari 6 and 6.1 for desktop, iPad, and iPhone are the only browsers that
+// have WebKitMutationObserver but not un-prefixed MutationObserver.
+// Must use `global` or `self` instead of `window` to work in both frames and web
+// workers. `global` is a provision of Browserify, Mr, Mrs, or Mop.
+
+/* globals self */
+var scope = typeof global !== "undefined" ? global : self;
+var BrowserMutationObserver = scope.MutationObserver || scope.WebKitMutationObserver;
+
+// MutationObservers are desirable because they have high priority and work
+// reliably everywhere they are implemented.
+// They are implemented in all modern browsers.
+//
+// - Android 4-4.3
+// - Chrome 26-34
+// - Firefox 14-29
+// - Internet Explorer 11
+// - iPad Safari 6-7.1
+// - iPhone Safari 7-7.1
+// - Safari 6-7
+if (typeof BrowserMutationObserver === "function") {
+    requestFlush = makeRequestCallFromMutationObserver(flush);
+
+// MessageChannels are desirable because they give direct access to the HTML
+// task queue, are implemented in Internet Explorer 10, Safari 5.0-1, and Opera
+// 11-12, and in web workers in many engines.
+// Although message channels yield to any queued rendering and IO tasks, they
+// would be better than imposing the 4ms delay of timers.
+// However, they do not work reliably in Internet Explorer or Safari.
+
+// Internet Explorer 10 is the only browser that has setImmediate but does
+// not have MutationObservers.
+// Although setImmediate yields to the browser's renderer, it would be
+// preferrable to falling back to setTimeout since it does not have
+// the minimum 4ms penalty.
+// Unfortunately there appears to be a bug in Internet Explorer 10 Mobile (and
+// Desktop to a lesser extent) that renders both setImmediate and
+// MessageChannel useless for the purposes of ASAP.
+// https://github.com/kriskowal/q/issues/396
+
+// Timers are implemented universally.
+// We fall back to timers in workers in most engines, and in foreground
+// contexts in the following browsers.
+// However, note that even this simple case requires nuances to operate in a
+// broad spectrum of browsers.
+//
+// - Firefox 3-13
+// - Internet Explorer 6-9
+// - iPad Safari 4.3
+// - Lynx 2.8.7
+} else {
+    requestFlush = makeRequestCallFromTimer(flush);
+}
+
+// `requestFlush` requests that the high priority event queue be flushed as
+// soon as possible.
+// This is useful to prevent an error thrown in a task from stalling the event
+// queue if the exception handled by Node.js’s
+// `process.on("uncaughtException")` or by a domain.
+rawAsap.requestFlush = requestFlush;
+
+// To request a high priority event, we induce a mutation observer by toggling
+// the text of a text node between "1" and "-1".
+function makeRequestCallFromMutationObserver(callback) {
+    var toggle = 1;
+    var observer = new BrowserMutationObserver(callback);
+    var node = document.createTextNode("");
+    observer.observe(node, {characterData: true});
+    return function requestCall() {
+        toggle = -toggle;
+        node.data = toggle;
+    };
+}
+
+// The message channel technique was discovered by Malte Ubl and was the
+// original foundation for this library.
+// http://www.nonblocking.io/2011/06/windownexttick.html
+
+// Safari 6.0.5 (at least) intermittently fails to create message ports on a
+// page's first load. Thankfully, this version of Safari supports
+// MutationObservers, so we don't need to fall back in that case.
+
+// function makeRequestCallFromMessageChannel(callback) {
+//     var channel = new MessageChannel();
+//     channel.port1.onmessage = callback;
+//     return function requestCall() {
+//         channel.port2.postMessage(0);
+//     };
+// }
+
+// For reasons explained above, we are also unable to use `setImmediate`
+// under any circumstances.
+// Even if we were, there is another bug in Internet Explorer 10.
+// It is not sufficient to assign `setImmediate` to `requestFlush` because
+// `setImmediate` must be called *by name* and therefore must be wrapped in a
+// closure.
+// Never forget.
+
+// function makeRequestCallFromSetImmediate(callback) {
+//     return function requestCall() {
+//         setImmediate(callback);
+//     };
+// }
+
+// Safari 6.0 has a problem where timers will get lost while the user is
+// scrolling. This problem does not impact ASAP because Safari 6.0 supports
+// mutation observers, so that implementation is used instead.
+// However, if we ever elect to use timers in Safari, the prevalent work-around
+// is to add a scroll event listener that calls for a flush.
+
+// `setTimeout` does not call the passed callback if the delay is less than
+// approximately 7 in web workers in Firefox 8 through 18, and sometimes not
+// even then.
+
+function makeRequestCallFromTimer(callback) {
+    return function requestCall() {
+        // We dispatch a timeout with a specified delay of 0 for engines that
+        // can reliably accommodate that request. This will usually be snapped
+        // to a 4 milisecond delay, but once we're flushing, there's no delay
+        // between events.
+        var timeoutHandle = setTimeout(handleTimer, 0);
+        // However, since this timer gets frequently dropped in Firefox
+        // workers, we enlist an interval handle that will try to fire
+        // an event 20 times per second until it succeeds.
+        var intervalHandle = setInterval(handleTimer, 50);
+
+        function handleTimer() {
+            // Whichever timer succeeds will cancel both timers and
+            // execute the callback.
+            clearTimeout(timeoutHandle);
+            clearInterval(intervalHandle);
+            callback();
+        }
+    };
+}
+
+// This is for `asap.js` only.
+// Its name will be periodically randomized to break any code that depends on
+// its existence.
+rawAsap.makeRequestCallFromTimer = makeRequestCallFromTimer;
+
+// ASAP was originally a nextTick shim included in Q. This was factored out
+// into this ASAP package. It was later adapted to RSVP which made further
+// amendments. These decisions, particularly to marginalize MessageChannel and
+// to capture the MutationObserver implementation in a closure, were integrated
+// back into ASAP proper.
+// https://github.com/tildeio/rsvp.js/blob/cddf7232546a9cf858524b75cde6f9edf72620a7/lib/rsvp/asap.js
+
+/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(23)))
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports) {
+
+// removed by extract-text-webpack-plugin
+
+/***/ }),
+/* 7 */
 /***/ (function(module, exports) {
 
 (function(e, a) { for(var i in a) e[i] = a[i]; }(exports, /******/ (function(modules) { // webpackBootstrap
@@ -68816,598 +69408,6 @@ if (((typeof window != "undefined" && window.module) || (typeof module != "undef
 //# sourceMappingURL=gridbuilding.js.map
 
 /***/ }),
-/* 2 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-var asap = __webpack_require__(6);
-
-function noop() {}
-
-// States:
-//
-// 0 - pending
-// 1 - fulfilled with _value
-// 2 - rejected with _value
-// 3 - adopted the state of another promise, _value
-//
-// once the state is no longer pending (0) it is immutable
-
-// All `_` prefixed properties will be reduced to `_{random number}`
-// at build time to obfuscate them and discourage their use.
-// We don't use symbols or Object.defineProperty to fully hide them
-// because the performance isn't good enough.
-
-
-// to avoid using try/catch inside critical functions, we
-// extract them to here.
-var LAST_ERROR = null;
-var IS_ERROR = {};
-function getThen(obj) {
-  try {
-    return obj.then;
-  } catch (ex) {
-    LAST_ERROR = ex;
-    return IS_ERROR;
-  }
-}
-
-function tryCallOne(fn, a) {
-  try {
-    return fn(a);
-  } catch (ex) {
-    LAST_ERROR = ex;
-    return IS_ERROR;
-  }
-}
-function tryCallTwo(fn, a, b) {
-  try {
-    fn(a, b);
-  } catch (ex) {
-    LAST_ERROR = ex;
-    return IS_ERROR;
-  }
-}
-
-module.exports = Promise;
-
-function Promise(fn) {
-  if (typeof this !== 'object') {
-    throw new TypeError('Promises must be constructed via new');
-  }
-  if (typeof fn !== 'function') {
-    throw new TypeError('not a function');
-  }
-  this._45 = 0;
-  this._81 = 0;
-  this._65 = null;
-  this._54 = null;
-  if (fn === noop) return;
-  doResolve(fn, this);
-}
-Promise._10 = null;
-Promise._97 = null;
-Promise._61 = noop;
-
-Promise.prototype.then = function(onFulfilled, onRejected) {
-  if (this.constructor !== Promise) {
-    return safeThen(this, onFulfilled, onRejected);
-  }
-  var res = new Promise(noop);
-  handle(this, new Handler(onFulfilled, onRejected, res));
-  return res;
-};
-
-function safeThen(self, onFulfilled, onRejected) {
-  return new self.constructor(function (resolve, reject) {
-    var res = new Promise(noop);
-    res.then(resolve, reject);
-    handle(self, new Handler(onFulfilled, onRejected, res));
-  });
-};
-function handle(self, deferred) {
-  while (self._81 === 3) {
-    self = self._65;
-  }
-  if (Promise._10) {
-    Promise._10(self);
-  }
-  if (self._81 === 0) {
-    if (self._45 === 0) {
-      self._45 = 1;
-      self._54 = deferred;
-      return;
-    }
-    if (self._45 === 1) {
-      self._45 = 2;
-      self._54 = [self._54, deferred];
-      return;
-    }
-    self._54.push(deferred);
-    return;
-  }
-  handleResolved(self, deferred);
-}
-
-function handleResolved(self, deferred) {
-  asap(function() {
-    var cb = self._81 === 1 ? deferred.onFulfilled : deferred.onRejected;
-    if (cb === null) {
-      if (self._81 === 1) {
-        resolve(deferred.promise, self._65);
-      } else {
-        reject(deferred.promise, self._65);
-      }
-      return;
-    }
-    var ret = tryCallOne(cb, self._65);
-    if (ret === IS_ERROR) {
-      reject(deferred.promise, LAST_ERROR);
-    } else {
-      resolve(deferred.promise, ret);
-    }
-  });
-}
-function resolve(self, newValue) {
-  // Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
-  if (newValue === self) {
-    return reject(
-      self,
-      new TypeError('A promise cannot be resolved with itself.')
-    );
-  }
-  if (
-    newValue &&
-    (typeof newValue === 'object' || typeof newValue === 'function')
-  ) {
-    var then = getThen(newValue);
-    if (then === IS_ERROR) {
-      return reject(self, LAST_ERROR);
-    }
-    if (
-      then === self.then &&
-      newValue instanceof Promise
-    ) {
-      self._81 = 3;
-      self._65 = newValue;
-      finale(self);
-      return;
-    } else if (typeof then === 'function') {
-      doResolve(then.bind(newValue), self);
-      return;
-    }
-  }
-  self._81 = 1;
-  self._65 = newValue;
-  finale(self);
-}
-
-function reject(self, newValue) {
-  self._81 = 2;
-  self._65 = newValue;
-  if (Promise._97) {
-    Promise._97(self, newValue);
-  }
-  finale(self);
-}
-function finale(self) {
-  if (self._45 === 1) {
-    handle(self, self._54);
-    self._54 = null;
-  }
-  if (self._45 === 2) {
-    for (var i = 0; i < self._54.length; i++) {
-      handle(self, self._54[i]);
-    }
-    self._54 = null;
-  }
-}
-
-function Handler(onFulfilled, onRejected, promise){
-  this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
-  this.onRejected = typeof onRejected === 'function' ? onRejected : null;
-  this.promise = promise;
-}
-
-/**
- * Take a potentially misbehaving resolver function and make sure
- * onFulfilled and onRejected are only called once.
- *
- * Makes no guarantees about asynchrony.
- */
-function doResolve(fn, promise) {
-  var done = false;
-  var res = tryCallTwo(fn, function (value) {
-    if (done) return;
-    done = true;
-    resolve(promise, value);
-  }, function (reason) {
-    if (done) return;
-    done = true;
-    reject(promise, reason);
-  })
-  if (!done && res === IS_ERROR) {
-    done = true;
-    reject(promise, LAST_ERROR);
-  }
-}
-
-
-/***/ }),
-/* 3 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
-
-var Brick = (function () {
-    function Brick(_world, _materialName, _physicalProperties, _size, _position, _rotation, _linearVelocity, _angularVelocity) {
-        if (_rotation === void 0) { _rotation = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
-        if (_linearVelocity === void 0) { _linearVelocity = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
-        if (_angularVelocity === void 0) { _angularVelocity = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(); }
-        this._world = _world;
-        this._materialName = _materialName;
-        this._physicalProperties = _physicalProperties;
-        this._size = _size;
-        this._position = _position;
-        this._rotation = _rotation;
-        this._linearVelocity = _linearVelocity;
-        this._angularVelocity = _angularVelocity;
-        this.createBabylonMesh();
-        this._world.bricks.push(this);
-        this.mesh.position = this._position;
-        this.mesh.rotation = this._rotation;
-        this.mesh.physicsImpostor.setLinearVelocity(this._linearVelocity);
-        this.mesh.physicsImpostor.setAngularVelocity(this._angularVelocity);
-    }
-    Object.defineProperty(Brick.prototype, "position", {
-        get: function () {
-            return this._position;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Brick.prototype, "rotation", {
-        get: function () {
-            return this.mesh.rotationQuaternion.toEulerAngles();
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Brick.prototype, "linearVelocity", {
-        get: function () {
-            return this.mesh.physicsImpostor.getLinearVelocity();
-        },
-        set: function (linearVelocity) {
-            this.mesh.physicsImpostor.setLinearVelocity(linearVelocity);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Brick.prototype, "angularVelocity", {
-        get: function () {
-            return this.mesh.physicsImpostor.getAngularVelocity();
-        },
-        set: function (angularVelocity) {
-            this.mesh.physicsImpostor.setAngularVelocity(angularVelocity);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Brick.prototype.createBabylonMesh = function () {
-        var globalScale = 10;
-        var width = this._size.x;
-        var height = this._size.y;
-        var depth = this._size.z;
-        var faceUV = [
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, width / globalScale, height / globalScale),
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, width / globalScale, height / globalScale),
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, height / globalScale, depth / globalScale),
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, height / globalScale, depth / globalScale),
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, depth / globalScale, width / globalScale),
-            new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector4"](0, 0, depth / globalScale, width / globalScale),
-        ];
-        var meshOptions = { width: width, height: height, depth: depth, faceUV: faceUV };
-        this.mesh = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["MeshBuilder"].CreateBox('BoxBrick', meshOptions, this._world.scene);
-        this.mesh.material = this._world.materialFactory.getMaterial(this._materialName);
-        this.mesh.physicsImpostor = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"](this.mesh, __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"].BoxImpostor, this._physicalProperties, this._world.scene);
-    };
-    return Brick;
-}());
-/* harmony default export */ __webpack_exports__["a"] = (Brick);
-
-
-/***/ }),
-/* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-// @remove-on-eject-begin
-/**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
- */
-// @remove-on-eject-end
-
-
-if (typeof Promise === 'undefined') {
-  // Rejection tracking prevents a common issue where React gets into an
-  // inconsistent state due to an error, but it gets swallowed by a Promise,
-  // and the user has no idea what causes React's erratic future behavior.
-  __webpack_require__(10).enable();
-  window.Promise = __webpack_require__(9);
-}
-
-// fetch() polyfill for making API calls.
-__webpack_require__(23);
-
-// Object.assign() is commonly used with React.
-// It will use the native implementation if it's present and isn't buggy.
-Object.assign = __webpack_require__(8);
-
-
-/***/ }),
-/* 5 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__world_World__ = __webpack_require__(21);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__index_css__ = __webpack_require__(7);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__index_css___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1__index_css__);
-
-
-var canvasElement = document.getElementById("scene");
-var world = new __WEBPACK_IMPORTED_MODULE_0__world_World__["a" /* default */](canvasElement);
-world.run();
-console.log(world);
-
-
-/***/ }),
-/* 6 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-/* WEBPACK VAR INJECTION */(function(global) {
-
-// Use the fastest means possible to execute a task in its own turn, with
-// priority over other events including IO, animation, reflow, and redraw
-// events in browsers.
-//
-// An exception thrown by a task will permanently interrupt the processing of
-// subsequent tasks. The higher level `asap` function ensures that if an
-// exception is thrown by a task, that the task queue will continue flushing as
-// soon as possible, but if you use `rawAsap` directly, you are responsible to
-// either ensure that no exceptions are thrown from your task, or to manually
-// call `rawAsap.requestFlush` if an exception is thrown.
-module.exports = rawAsap;
-function rawAsap(task) {
-    if (!queue.length) {
-        requestFlush();
-        flushing = true;
-    }
-    // Equivalent to push, but avoids a function call.
-    queue[queue.length] = task;
-}
-
-var queue = [];
-// Once a flush has been requested, no further calls to `requestFlush` are
-// necessary until the next `flush` completes.
-var flushing = false;
-// `requestFlush` is an implementation-specific method that attempts to kick
-// off a `flush` event as quickly as possible. `flush` will attempt to exhaust
-// the event queue before yielding to the browser's own event loop.
-var requestFlush;
-// The position of the next task to execute in the task queue. This is
-// preserved between calls to `flush` so that it can be resumed if
-// a task throws an exception.
-var index = 0;
-// If a task schedules additional tasks recursively, the task queue can grow
-// unbounded. To prevent memory exhaustion, the task queue will periodically
-// truncate already-completed tasks.
-var capacity = 1024;
-
-// The flush function processes all tasks that have been scheduled with
-// `rawAsap` unless and until one of those tasks throws an exception.
-// If a task throws an exception, `flush` ensures that its state will remain
-// consistent and will resume where it left off when called again.
-// However, `flush` does not make any arrangements to be called again if an
-// exception is thrown.
-function flush() {
-    while (index < queue.length) {
-        var currentIndex = index;
-        // Advance the index before calling the task. This ensures that we will
-        // begin flushing on the next task the task throws an error.
-        index = index + 1;
-        queue[currentIndex].call();
-        // Prevent leaking memory for long chains of recursive calls to `asap`.
-        // If we call `asap` within tasks scheduled by `asap`, the queue will
-        // grow, but to avoid an O(n) walk for every task we execute, we don't
-        // shift tasks off the queue after they have been executed.
-        // Instead, we periodically shift 1024 tasks off the queue.
-        if (index > capacity) {
-            // Manually shift all values starting at the index back to the
-            // beginning of the queue.
-            for (var scan = 0, newLength = queue.length - index; scan < newLength; scan++) {
-                queue[scan] = queue[scan + index];
-            }
-            queue.length -= index;
-            index = 0;
-        }
-    }
-    queue.length = 0;
-    index = 0;
-    flushing = false;
-}
-
-// `requestFlush` is implemented using a strategy based on data collected from
-// every available SauceLabs Selenium web driver worker at time of writing.
-// https://docs.google.com/spreadsheets/d/1mG-5UYGup5qxGdEMWkhP6BWCz053NUb2E1QoUTU16uA/edit#gid=783724593
-
-// Safari 6 and 6.1 for desktop, iPad, and iPhone are the only browsers that
-// have WebKitMutationObserver but not un-prefixed MutationObserver.
-// Must use `global` or `self` instead of `window` to work in both frames and web
-// workers. `global` is a provision of Browserify, Mr, Mrs, or Mop.
-
-/* globals self */
-var scope = typeof global !== "undefined" ? global : self;
-var BrowserMutationObserver = scope.MutationObserver || scope.WebKitMutationObserver;
-
-// MutationObservers are desirable because they have high priority and work
-// reliably everywhere they are implemented.
-// They are implemented in all modern browsers.
-//
-// - Android 4-4.3
-// - Chrome 26-34
-// - Firefox 14-29
-// - Internet Explorer 11
-// - iPad Safari 6-7.1
-// - iPhone Safari 7-7.1
-// - Safari 6-7
-if (typeof BrowserMutationObserver === "function") {
-    requestFlush = makeRequestCallFromMutationObserver(flush);
-
-// MessageChannels are desirable because they give direct access to the HTML
-// task queue, are implemented in Internet Explorer 10, Safari 5.0-1, and Opera
-// 11-12, and in web workers in many engines.
-// Although message channels yield to any queued rendering and IO tasks, they
-// would be better than imposing the 4ms delay of timers.
-// However, they do not work reliably in Internet Explorer or Safari.
-
-// Internet Explorer 10 is the only browser that has setImmediate but does
-// not have MutationObservers.
-// Although setImmediate yields to the browser's renderer, it would be
-// preferrable to falling back to setTimeout since it does not have
-// the minimum 4ms penalty.
-// Unfortunately there appears to be a bug in Internet Explorer 10 Mobile (and
-// Desktop to a lesser extent) that renders both setImmediate and
-// MessageChannel useless for the purposes of ASAP.
-// https://github.com/kriskowal/q/issues/396
-
-// Timers are implemented universally.
-// We fall back to timers in workers in most engines, and in foreground
-// contexts in the following browsers.
-// However, note that even this simple case requires nuances to operate in a
-// broad spectrum of browsers.
-//
-// - Firefox 3-13
-// - Internet Explorer 6-9
-// - iPad Safari 4.3
-// - Lynx 2.8.7
-} else {
-    requestFlush = makeRequestCallFromTimer(flush);
-}
-
-// `requestFlush` requests that the high priority event queue be flushed as
-// soon as possible.
-// This is useful to prevent an error thrown in a task from stalling the event
-// queue if the exception handled by Node.js’s
-// `process.on("uncaughtException")` or by a domain.
-rawAsap.requestFlush = requestFlush;
-
-// To request a high priority event, we induce a mutation observer by toggling
-// the text of a text node between "1" and "-1".
-function makeRequestCallFromMutationObserver(callback) {
-    var toggle = 1;
-    var observer = new BrowserMutationObserver(callback);
-    var node = document.createTextNode("");
-    observer.observe(node, {characterData: true});
-    return function requestCall() {
-        toggle = -toggle;
-        node.data = toggle;
-    };
-}
-
-// The message channel technique was discovered by Malte Ubl and was the
-// original foundation for this library.
-// http://www.nonblocking.io/2011/06/windownexttick.html
-
-// Safari 6.0.5 (at least) intermittently fails to create message ports on a
-// page's first load. Thankfully, this version of Safari supports
-// MutationObservers, so we don't need to fall back in that case.
-
-// function makeRequestCallFromMessageChannel(callback) {
-//     var channel = new MessageChannel();
-//     channel.port1.onmessage = callback;
-//     return function requestCall() {
-//         channel.port2.postMessage(0);
-//     };
-// }
-
-// For reasons explained above, we are also unable to use `setImmediate`
-// under any circumstances.
-// Even if we were, there is another bug in Internet Explorer 10.
-// It is not sufficient to assign `setImmediate` to `requestFlush` because
-// `setImmediate` must be called *by name* and therefore must be wrapped in a
-// closure.
-// Never forget.
-
-// function makeRequestCallFromSetImmediate(callback) {
-//     return function requestCall() {
-//         setImmediate(callback);
-//     };
-// }
-
-// Safari 6.0 has a problem where timers will get lost while the user is
-// scrolling. This problem does not impact ASAP because Safari 6.0 supports
-// mutation observers, so that implementation is used instead.
-// However, if we ever elect to use timers in Safari, the prevalent work-around
-// is to add a scroll event listener that calls for a flush.
-
-// `setTimeout` does not call the passed callback if the delay is less than
-// approximately 7 in web workers in Firefox 8 through 18, and sometimes not
-// even then.
-
-function makeRequestCallFromTimer(callback) {
-    return function requestCall() {
-        // We dispatch a timeout with a specified delay of 0 for engines that
-        // can reliably accommodate that request. This will usually be snapped
-        // to a 4 milisecond delay, but once we're flushing, there's no delay
-        // between events.
-        var timeoutHandle = setTimeout(handleTimer, 0);
-        // However, since this timer gets frequently dropped in Firefox
-        // workers, we enlist an interval handle that will try to fire
-        // an event 20 times per second until it succeeds.
-        var intervalHandle = setInterval(handleTimer, 50);
-
-        function handleTimer() {
-            // Whichever timer succeeds will cancel both timers and
-            // execute the callback.
-            clearTimeout(timeoutHandle);
-            clearInterval(intervalHandle);
-            callback();
-        }
-    };
-}
-
-// This is for `asap.js` only.
-// Its name will be periodically randomized to break any code that depends on
-// its existence.
-rawAsap.makeRequestCallFromTimer = makeRequestCallFromTimer;
-
-// ASAP was originally a nextTick shim included in Q. This was factored out
-// into this ASAP package. It was later adapted to RSVP which made further
-// amendments. These decisions, particularly to marginalize MessageChannel and
-// to capture the MutationObserver implementation in a closure, were integrated
-// back into ASAP proper.
-// https://github.com/tildeio/rsvp.js/blob/cddf7232546a9cf858524b75cde6f9edf72620a7/lib/rsvp/asap.js
-
-/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(22)))
-
-/***/ }),
-/* 7 */
-/***/ (function(module, exports) {
-
-// removed by extract-text-webpack-plugin
-
-/***/ }),
 /* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -69513,7 +69513,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 
 //This file contains the ES6 extensions to the core Promises/A+ API
 
-var Promise = __webpack_require__(2);
+var Promise = __webpack_require__(1);
 
 module.exports = Promise;
 
@@ -69625,7 +69625,7 @@ Promise.prototype['catch'] = function (onRejected) {
 "use strict";
 
 
-var Promise = __webpack_require__(2);
+var Promise = __webpack_require__(1);
 
 var DEFAULT_WHITELIST = [
   ReferenceError,
@@ -69770,9 +69770,9 @@ var PLAYER = {
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_gridbuilding__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_gridbuilding__ = __webpack_require__(7);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_gridbuilding___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_gridbuilding__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__world_Brick__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__world_Brick__ = __webpack_require__(2);
 
 
 
@@ -69782,19 +69782,17 @@ var WorldGenerator = (function () {
     }
     WorldGenerator.prototype.generateWorld = function () {
         var _this = this;
-        var center = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](0, 0, 50);
-        var FLOOR = "       \n+:::+:::+\n:::::::::\n+:::+:::+\n::::::::|\n+:::+---+\n";
+        var center = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](0, 0, 50).add(new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](20, 0, 20));
+        var FLOOR1 = "       \n+:::+:::+\n:::::::::\n+:::+:::+\n:::::::::\n+:::+:::+\n";
+        var FLOOR2 = "       \n----|----\n|:::|:::|\n|-------|\n|:::|:::|\n----|----\n";
         var building = __WEBPACK_IMPORTED_MODULE_1_gridbuilding__["Building"].fromFloorStrings([
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR,
-            FLOOR
+            FLOOR1,
+            FLOOR1,
+            FLOOR1,
+            FLOOR2,
         ]);
         building.getBricks().forEach(function (brick) {
-            new __WEBPACK_IMPORTED_MODULE_2__world_Brick__["a" /* default */](_this.world, 'stone-plain', { mass: 200, restitution: 0.01 }, new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](brick.size.x, brick.size.z, brick.size.y), new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](brick.center.x, brick.center.z, brick.center.y).add(center));
+            new __WEBPACK_IMPORTED_MODULE_2__world_Brick__["a" /* default */](_this.world, 'stone-plain', { mass: 200, restitution: 0.001 }, new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](brick.size.x, brick.size.z, brick.size.y), new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](brick.center.x, brick.center.z, brick.center.y).add(center));
         });
     };
     return WorldGenerator;
@@ -69847,6 +69845,191 @@ var MaterialFactory = (function () {
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+/* unused harmony export Vector2 */
+/* unused harmony export TimeVector2 */
+//import {Vector2} from 'gridbuilding';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var Vector2 = (function () {
+    function Vector2(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    Vector2.Zero = function () {
+        return new Vector2(0, 0);
+    };
+    Vector2.prototype.add = function (vector3) {
+        return new Vector2(this.x + vector3.x, this.y + vector3.y);
+    };
+    Vector2.prototype.subtract = function (vector3) {
+        return new Vector2(this.x - vector3.x, this.y - vector3.y);
+    };
+    Vector2.prototype.scale = function (scale) {
+        return new Vector2(this.x * scale, this.y * scale);
+    };
+    Vector2.prototype.length = function (vector2) {
+        if (vector2 === void 0) { vector2 = Vector2.Zero(); }
+        return Math.sqrt(Math.pow(this.x - vector2.x, 2) +
+            Math.pow(this.y - vector2.y, 2));
+    };
+    Vector2.prototype.toArray = function () {
+        return [this.x, this.y];
+    };
+    return Vector2;
+}());
+
+var TimeVector2 = (function (_super) {
+    __extends(TimeVector2, _super);
+    function TimeVector2(x, y, t) {
+        var _this = _super.call(this, x, y) || this;
+        _this.t = t;
+        return _this;
+    }
+    TimeVector2.Zero = function () {
+        return new TimeVector2(0, 0, 0);
+    };
+    return TimeVector2;
+}(Vector2));
+
+var TouchController = (function () {
+    /*static copyTouch(touch:) {
+        return {identifier: touch.identifier,clientX: touch.clientX,clientY: touch.clientY};
+    }*/
+    function TouchController(element, handleMouse) {
+        if (handleMouse === void 0) { handleMouse = true; }
+        var _this = this;
+        this.element = element;
+        this.ongoingTouches = [];
+        this._subscribers = [];
+        element.addEventListener("touchstart", function (event) { return _this._handleTouchStart(event); }, false);
+        element.addEventListener("touchend", function (event) { return _this._handleTouchEnd(true, event); }, false);
+        element.addEventListener("touchcancel", function (event) { return _this._handleTouchEnd(false, event); }, false);
+        //todo element.addEventListener("touchleave", (event)=>this._handleTouchEnd(true,event), false);
+        element.addEventListener("touchmove", function (event) { return _this._handleTouchMove(event); }, false);
+        if (handleMouse) {
+            element.addEventListener("mousedown", function (event) { return _this._handleMouseDown(event); }, false);
+            element.addEventListener("mousemove", function (event) { return _this._handleMouseMove(event); }, false);
+            element.addEventListener("mouseup", function (event) { return _this._handleMouseUp(true, event); }, false);
+        }
+    }
+    TouchController.prototype.subscribe = function (subscriber) {
+        this._subscribers.push(subscriber);
+    };
+    //todo unsubscribe
+    TouchController.prototype._handleTouchStart = function (event) {
+        event.preventDefault();
+        var touches = event.changedTouches;
+        for (var i = 0, l = touches.length; i < l; i++) {
+            this.ongoingTouches.push({
+                id: 'touch' + touches[i].identifier,
+                type: 'TOUCH',
+                start: performance.now(),
+                //element: this.element,
+                points: []
+            });
+        }
+    };
+    TouchController.prototype._handleTouchMove = function (event) {
+        event.preventDefault();
+        var touches = event.changedTouches;
+        for (var i = 0, l = touches.length; i < l; i++) {
+            var index = this._ongoingTouchIndexById('touch' + touches[i].identifier);
+            if (index !== -1) {
+                //console.log("continuing touch " + index);
+                this.ongoingTouches[index].points.push(new TimeVector2(touches[i].clientX / this.element.clientWidth, touches[i].clientY / this.element.clientHeight, performance.now()));
+                //ongoingTouches.splice(index, 1, copyTouch(touches[i])); // swap in the new touch record
+            }
+            else {
+                console.log("can't figure out which touch to continue");
+            }
+        }
+    };
+    TouchController.prototype._handleTouchEnd = function (callSubscribers, event) {
+        var _this = this;
+        event.preventDefault();
+        var touches = event.changedTouches;
+        var _loop_1 = function (i, l) {
+            var index = this_1._ongoingTouchIndexById('touch' + touches[i].identifier);
+            if (index !== -1) {
+                if (callSubscribers) {
+                    this_1._subscribers.forEach(function (subscriber) { return subscriber(_this.ongoingTouches[index]); });
+                }
+                this_1.ongoingTouches.splice(index, 1);
+            }
+            else {
+                console.log("can't figure out which touch to end");
+            }
+        };
+        var this_1 = this;
+        for (var i = 0, l = touches.length; i < l; i++) {
+            _loop_1(i, l);
+        }
+    };
+    TouchController.prototype._ongoingTouchIndexById = function (idToFind) {
+        for (var i = 0; i < this.ongoingTouches.length; i++) {
+            var id = this.ongoingTouches[i].id;
+            if (id === idToFind) {
+                return i;
+            }
+        }
+        return -1; // not found
+    };
+    TouchController.prototype._handleMouseDown = function (event) {
+        event.preventDefault();
+        //todo DRY
+        this.ongoingTouches.push({
+            id: 'mouse',
+            type: 'MOUSE',
+            start: performance.now(),
+            //element: this.element,
+            points: []
+        });
+    };
+    TouchController.prototype._handleMouseMove = function (event) {
+        event.preventDefault();
+        //todo DRY
+        var index = this._ongoingTouchIndexById('mouse');
+        if (index !== -1) {
+            this.ongoingTouches[index].points.push(new TimeVector2(event.clientX / this.element.clientWidth, event.clientY / this.element.clientHeight, performance.now() - this.ongoingTouches[index].start));
+            //ongoingTouches.splice(index, 1, copyTouch(touches[i])); // swap in the new touch record
+        }
+        else {
+            //console.log("can't figure out which touch to continue");
+        }
+    };
+    TouchController.prototype._handleMouseUp = function (callSubscribers, event) {
+        var _this = this;
+        event.preventDefault();
+        //todo DRY
+        var index = this._ongoingTouchIndexById('mouse');
+        if (index !== -1) {
+            if (callSubscribers) {
+                this._subscribers.forEach(function (subscriber) { return subscriber(_this.ongoingTouches[index]); });
+            }
+            this.ongoingTouches.splice(index, 1);
+        }
+        else {
+            console.log("can't figure out which touch to end");
+        }
+    };
+    return TouchController;
+}());
+/* harmony default export */ __webpack_exports__["a"] = (TouchController);
+
+
+/***/ }),
+/* 15 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
 /* harmony export (immutable) */ __webpack_exports__["a"] = createCamera;
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
@@ -69859,14 +70042,14 @@ function createCamera(scene) {
 
 
 /***/ }),
-/* 15 */
+/* 16 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__createCamera__ = __webpack_require__(14);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__setPlayerAction__ = __webpack_require__(16);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__createCamera__ = __webpack_require__(15);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__setPlayerAction__ = __webpack_require__(17);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__config__ = __webpack_require__(11);
 
 
@@ -69945,17 +70128,17 @@ var Player = (function () {
 
 
 /***/ }),
-/* 16 */
+/* 17 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 /* harmony export (immutable) */ __webpack_exports__["a"] = setPlayerAction;
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_gridbuilding__ = __webpack_require__(1);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_gridbuilding___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_gridbuilding__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__world_Brick__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__TouchController__ = __webpack_require__(14);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__world_Brick__ = __webpack_require__(2);
 
+//import {Vector2} from 'gridbuilding';
 
 
 function groupArray(array, inGroup) {
@@ -69973,32 +70156,58 @@ function groupArray(array, inGroup) {
     return result;
 }
 function setPlayerAction(player) {
-    var pointerDown = false;
-    var path;
-    player.world.canvasElement.addEventListener("pointerdown", function (event) {
-        pointerDown = true;
-        path = [];
-        //todo duplicite
-        path.push(new __WEBPACK_IMPORTED_MODULE_1_gridbuilding__["Vector2"](event.clientX / document.documentElement.clientWidth, event.clientY / document.documentElement.clientHeight));
-    });
-    player.world.canvasElement.addEventListener("pointermove", function (event) {
-        if (pointerDown) {
-            path.push(new __WEBPACK_IMPORTED_MODULE_1_gridbuilding__["Vector2"](event.clientX / document.documentElement.clientWidth, event.clientY / document.documentElement.clientHeight));
-        }
-    });
-    player.world.canvasElement.addEventListener("pointerup", function (event) {
+    var touchController = new __WEBPACK_IMPORTED_MODULE_1__TouchController__["a" /* default */](player.world.canvasElement);
+    touchController.subscribe(function (touch) { return console.log(touch); });
+    touchController.subscribe(function (touch) {
         //const x = (event.clientX / document.documentElement.clientWidth)-.5;
         //const y = (event.clientY / document.documentElement.clientHeight)-.5;
-        var length = groupArray(path, 2).reduce(function (sum, currentValue) { return sum + currentValue[0].length(currentValue[1]); }, 0);
-        var delta = path[path.length - 1].subtract(path[0]);
-        //console.log(length);
+        var length = groupArray(touch.points, 2).reduce(function (sum, currentValue) { return sum + currentValue[0].length(currentValue[1]); }, 0);
+        var delta = touch.points[touch.points.length - 1].subtract(touch.points[0]);
         new __WEBPACK_IMPORTED_MODULE_2__world_Brick__["a" /* default */](player.world, 'clay-bricks', { mass: 5000, restitution: 0.5 }, new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](2, 2, 2), player.mesh.position.add(player.direction1), __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"].Zero(), player.direction1.scale(length * 100).add(new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"](100 * delta.x, 100 * -delta.y, 0)), new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Vector3"]((Math.random() - .5) * Math.PI * 10, (Math.random() - .5) * Math.PI * 10, (Math.random() - .5) * Math.PI * 10));
     });
+    /*let pointerDown: boolean = false;
+    let path: Vector2[];
+
+
+    player.world.canvasElement.addEventListener(
+        "pointerdown",
+        (event) => {
+
+            pointerDown = true;
+            path = [];
+            //todo duplicite
+            path.push(new Vector2(
+                event.clientX / document.documentElement.clientWidth,
+                event.clientY / document.documentElement.clientHeight
+            ));
+
+
+        });
+
+
+    player.world.canvasElement.addEventListener(
+        "pointermove",
+        (event) => {
+            if (pointerDown) {
+                path.push(new Vector2(
+                    event.clientX / document.documentElement.clientWidth,
+                    event.clientY / document.documentElement.clientHeight
+                ));
+            }
+        });
+
+
+    player.world.canvasElement.addEventListener(
+        "pointerup",
+        (event) => {
+            throwBrick(player,path);
+        });
+    */
 }
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -70009,13 +70218,13 @@ function setPlayerAction(player) {
 function createGroundMesh(scene, materialFactory) {
     var groundMesh = __WEBPACK_IMPORTED_MODULE_0_babylonjs__["Mesh"].CreateGround("ground", 1000, 1000, 2, scene);
     groundMesh.material = materialFactory.getMaterial('grass');
-    groundMesh.physicsImpostor = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"](groundMesh, __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"].BoxImpostor, { mass: 0, restitution: 0.1 }, scene);
+    groundMesh.physicsImpostor = new __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"](groundMesh, __WEBPACK_IMPORTED_MODULE_0_babylonjs__["PhysicsImpostor"].BoxImpostor, { mass: 0, restitution: 1 }, scene);
     return groundMesh;
 }
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -70032,7 +70241,7 @@ function createLights(scene) {
 
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -70051,7 +70260,7 @@ function createScene(engine) {
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -70074,7 +70283,7 @@ function createSkyboxMesh(scene) {
 
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -70082,11 +70291,11 @@ function createSkyboxMesh(scene) {
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babylonjs___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babylonjs__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__MaterialFactory__ = __webpack_require__(13);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__generator__ = __webpack_require__(12);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__Player__ = __webpack_require__(15);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__createScene__ = __webpack_require__(19);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__createLights__ = __webpack_require__(18);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__createGround__ = __webpack_require__(17);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__createSkyboxMesh__ = __webpack_require__(20);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__Player__ = __webpack_require__(16);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4__createScene__ = __webpack_require__(20);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__createLights__ = __webpack_require__(19);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6__createGround__ = __webpack_require__(18);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__createSkyboxMesh__ = __webpack_require__(21);
 
 
 
@@ -70132,7 +70341,7 @@ var World = (function () {
 
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports) {
 
 var g;
@@ -70159,7 +70368,7 @@ module.exports = g;
 
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ (function(module, exports) {
 
 (function(self) {
@@ -70626,13 +70835,13 @@ module.exports = g;
 
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(4);
-module.exports = __webpack_require__(5);
+__webpack_require__(3);
+module.exports = __webpack_require__(4);
 
 
 /***/ })
 /******/ ]);
-//# sourceMappingURL=main.0920c3a9.js.map
+//# sourceMappingURL=main.d04a9503.js.map
