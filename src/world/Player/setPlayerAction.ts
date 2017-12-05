@@ -1,6 +1,6 @@
 import * as BABYLON from 'babylonjs';
 //import {Vector2} from 'gridbuilding';
-import TouchController from '../../TouchController/index';
+import {TouchController} from '../../TouchController';
 //import {TimeVector2} from './TouchController';
 import Player from './index';
 import Brick from '../../world/Brick';
@@ -27,26 +27,20 @@ function groupArray<T>(array: T[], inGroup: number): T[][] {
 }
 
 
-
 export default function setPlayerAction(player: Player) {
 
 
     const touchController = new TouchController(player.world.canvasElement);
-    touchController.subscribe((touch) => console.log(touch));
-    touchController.subscribe((touch) => {
+    touchController.subscribe('START',(touch) => console.log(touch));
+    touchController.subscribe('END',(touch) => console.log(touch));
+    touchController.subscribe('END',(touch) => {
 
         //const x = (event.clientX / document.documentElement.clientWidth)-.5;
         //const y = (event.clientY / document.documentElement.clientHeight)-.5;
 
 
-
-
         const length = groupArray(touch.points, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
         const delta = touch.points[touch.points.length - 1].subtract(touch.points[0]);
-
-
-
-
 
 
         new Brick(
@@ -68,7 +62,6 @@ export default function setPlayerAction(player: Player) {
             )
         );
     });
-
 
 
     /*let pointerDown: boolean = false;

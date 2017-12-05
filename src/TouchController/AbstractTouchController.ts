@@ -1,68 +1,43 @@
 import TimeVector2 from './TimeVector2';
+import Touch from './Touch';
+import AbstractClassWithSubscribe from './AbstractClassWithSubscribe';
 
-export interface ITouch {
-    id: string;
-    type: 'TOUCH' | 'MOUSE';
-    start: number;//todo Date
-    //maybe todo element: HTMLElement;
-    //finished: boolean;
-    points: TimeVector2[];
-}
 
 //class Touch
 
 
-export default class TouchController {
+export default class TouchController extends AbstractClassWithSubscribe<"START" | "MOVE" | "END", Touch> {
 
-
-    public ongoingTouches: ITouch[] = [];
+    public ongoingTouches: Touch[] = [];
 
     constructor(public element: HTMLElement) {
+        super();
     }
 
-
-    private _subscribers: ((touch: ITouch) => void)[] = [];
-
-    subscribe(subscriber: ((touch: ITouch) => void)) {
-        this._subscribers.push(subscriber);
-    }
-
-    //todo unsubscribe
-
-
-    touchStart(touch: ITouch) {
+    touchStart(touch: Touch) {
         this.ongoingTouches.push(touch);
+        this.callSubscribers('START', touch);
     }
 
-    touchMove(id: string, event: { clientX: number, clientY: number }) {
+    touchMove(id: string, end: boolean, event: { clientX: number, clientY: number }) {
         const index = this._ongoingTouchIndexById(id);
         if (index !== -1) {
-            //console.log("continuing touch " + index);
-
-            this.ongoingTouches[index].points.push(new TimeVector2(
+            const touch = this.ongoingTouches[index];
+            touch.move(new TimeVector2(
                 event.clientX / this.element.clientWidth,
                 event.clientY / this.element.clientHeight,
                 performance.now()
-            ));
-
-            //ongoingTouches.splice(index, 1, copyTouch(touches[i])); // swap in the new touch record
-        } else {
-            console.log("can't figure out which touch to continue");
-        }
-    }
-
-    touchEnd(id: string, callSubscribers: boolean) {
-        const index = this._ongoingTouchIndexById(id);
-        if (index !== -1) {
-            if (callSubscribers) {
-                this._subscribers.forEach((subscriber) => subscriber(this.ongoingTouches[index]));
+            ),end);
+            if (end) {
+                this.ongoingTouches.splice(index, 1);
+                this.callSubscribers('END', touch);
+            }else{
+                this.callSubscribers('MOVE', touch);
             }
-            this.ongoingTouches.splice(index, 1);
         } else {
-            console.log("can't figure out which touch to end");
+            //console.warn(`Can't find touch with id "${id}".`);
         }
     }
-
 
     private _ongoingTouchIndexById(idToFind: string): number {
         for (let i = 0; i < this.ongoingTouches.length; i++) {
@@ -72,7 +47,7 @@ export default class TouchController {
                 return i;
             }
         }
-        return -1; // not found
+        return -1;
     }
 
 }
