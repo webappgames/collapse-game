@@ -4,7 +4,7 @@ import Touch from './Touch';
 export default class TouchController extends AbstractTouchController {
 
 
-    constructor(element: HTMLElement, handleMouse = true) {
+    constructor(element: HTMLElement, handleMouse = true, preventContextMenu = true) {
         super(element);
         element.addEventListener("touchstart", (event) => this._handleTouchStart(event), false);
         element.addEventListener("touchend", (event) => this._handleTouchEnd(true, event), false);
@@ -17,6 +17,13 @@ export default class TouchController extends AbstractTouchController {
             element.addEventListener("mousedown", (event) => this._handleMouseDown(event), false);
             element.addEventListener("mousemove", (event) => this._handleMouseMove(event), false);
             element.addEventListener("mouseup", (event) => this._handleMouseUp(true, event), false);
+        }
+
+        if (preventContextMenu) {
+            element.addEventListener("contextmenu", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            }, false);
         }
 
     }

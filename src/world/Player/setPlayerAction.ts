@@ -25,32 +25,30 @@ function groupArray<T>(array: T[], inGroup: number): T[][] {
     return result;
 
 }
+groupArray;
 
 
 export default function setPlayerAction(player: Player) {
 
 
     const touchController = new TouchController(player.world.canvasElement);
-    touchController.subscribe('START',(touch) => console.log(touch));
-    touchController.subscribe('END',(touch) => console.log(touch));
-    touchController.subscribe('END',(touch) => {
+    touchController.subscribe('START',(touch) => {
 
-        //const x = (event.clientX / document.documentElement.clientWidth)-.5;
-        //const y = (event.clientY / document.documentElement.clientHeight)-.5;
+        console.log(touch);
 
 
-        const length = groupArray(touch.points, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
-        const delta = touch.points[touch.points.length - 1].subtract(touch.points[0]);
+        //const length = groupArray(touch.points, 2).reduce((sum, currentValue) => sum + currentValue[0].length(currentValue[1]), 0);
+        //const delta = touch.points[touch.points.length - 1].subtract(touch.points[0]);
 
 
-        new Brick(
+        const brick = new Brick(
             player.world,
             'clay-bricks',
-            {mass: 5000, restitution: 0.5},
+            {mass: 8000, restitution: 0.5},
             new BABYLON.Vector3(2, 2, 2),
-            player.mesh.position.add(player.direction1),
+            player.mesh.position.add(player.direction1.scale(5)),
             BABYLON.Vector3.Zero(),
-            player.direction1.scale(length * 100).add(new BABYLON.Vector3(
+            /*player.direction1.scale(length * 100).add(new BABYLON.Vector3(
                 100 * delta.x,
                 100 * -delta.y,
                 0
@@ -59,8 +57,32 @@ export default function setPlayerAction(player: Player) {
                 (Math.random() - .5) * Math.PI * 10,
                 (Math.random() - .5) * Math.PI * 10,
                 (Math.random() - .5) * Math.PI * 10
-            )
+            )*/
         );
+
+
+        touch.subscribe('END',()=>{
+
+            //brick.mesh.physicsImpostor.setMass(8000);
+
+            brick.linearVelocity = player.direction1.scale(100).add(new BABYLON.Vector3(
+                0,
+                30,
+                0
+            ))
+
+            brick.angularVelocity = new BABYLON.Vector3(
+                (Math.random() - .5) * Math.PI * 10,
+                (Math.random() - .5) * Math.PI * 10,
+                (Math.random() - .5) * Math.PI * 10
+            );
+
+
+        });
+
+
+
+
     });
 
 
