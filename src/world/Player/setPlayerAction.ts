@@ -1,6 +1,6 @@
 import * as BABYLON from 'babylonjs';
 //import {Vector2} from 'gridbuilding';
-import TouchController from './TouchController';
+import TouchController from '../../TouchController/index';
 //import {TimeVector2} from './TouchController';
 import Player from './index';
 import Brick from '../../world/Brick';
