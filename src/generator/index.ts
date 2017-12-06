@@ -49,7 +49,7 @@ export default class WorldGenerator{
 
             new Brick(
                 this.world,
-                'stone-plain',
+                '#'+Math.floor(Math.random()*16777215).toString(16),
                 {mass:200, restitution: 0.001},
                 new BABYLON.Vector3(brick.size.x, brick.size.z, brick.size.y),
                 new BABYLON.Vector3(brick.center.x, brick.center.z, brick.center.y).add(center)

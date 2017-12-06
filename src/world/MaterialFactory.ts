@@ -20,19 +20,32 @@ export default class MaterialFactory{
             return cashedMaterial;
         }else {
 
-            let textureScale=1;
-            if(materialName==='grass'){
-                textureScale=100;
-            }
-
             const material = new BABYLON.StandardMaterial(materialName, this._scene);
             material.backFaceCulling = false;
-            const texture = new BABYLON.Texture(process.env.PUBLIC_URL +`/assets/textures/${materialName}.jpg`, this._scene);
-            texture.uScale = textureScale;
-            texture.vScale = textureScale;
-            material.diffuseTexture = texture;
-            material.specularColor = BABYLON.Color3.FromHexString('#ffeacb');
-            material.emissiveTexture = texture;
+
+            if(materialName.substring(0,1)==='#') {
+
+                const color = BABYLON.Color3.FromHexString(materialName);
+                material.diffuseColor = color;
+                material.specularColor = BABYLON.Color3.FromHexString('#ffeacb');
+                material.emissiveColor = color;
+
+            }else{
+
+                let textureScale=1;
+                if(materialName==='grass'){
+                    textureScale=100;
+                }
+                const texture = new BABYLON.Texture(process.env.PUBLIC_URL +`/assets/textures/${materialName}.jpg`, this._scene);
+                texture.uScale = textureScale;
+                texture.vScale = textureScale;
+                material.diffuseTexture = texture;
+                material.specularColor = BABYLON.Color3.FromHexString('#ffeacb');
+                material.emissiveTexture = texture;
+
+            }
+
+
             this._materialsCache.push(material);
             return material;
         }
