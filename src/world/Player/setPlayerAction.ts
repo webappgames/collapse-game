@@ -1,6 +1,6 @@
 import * as BABYLON from 'babylonjs';
 //import {Vector2} from 'gridbuilding';
-import {TouchController} from '../../TouchController';
+import {TouchController,listeners} from '../../TouchController';
 //import {TimeVector2} from './TouchController';
 import Player from './index';
 import Brick from '../../world/Brick';
@@ -32,6 +32,8 @@ export default function setPlayerAction(player: Player) {
 
 
     const touchController = new TouchController(player.world.canvasElement);
+    touchController.addListener(new listeners.TouchListener());
+    touchController.addListener(new listeners.MouseListener(true));
     touchController.subscribe('START',(touch) => {
 
         console.log(touch);
