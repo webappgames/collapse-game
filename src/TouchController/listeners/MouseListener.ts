@@ -26,6 +26,11 @@ export default class TouchListener implements IListener {
             (event) => this._handleMouseUp(true, event),
             false
         );
+        touchController.element.addEventListener(
+            "mouseleave",
+            (event) => this._handleMouseUp(true, event),
+            false
+        );
 
         if (this._preventContextMenu) {
             touchController.element.addEventListener("contextmenu", (event) => {
