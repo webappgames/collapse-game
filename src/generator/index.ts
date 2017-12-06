@@ -31,17 +31,17 @@ export default class WorldGenerator{
 `;
 
         const FLOOR2 = `       
-----|----
+---------
 |:::|:::|
 |-------|
 |:::|:::|
-----|----
+---------
 `;
 
         const building = GridBuilding.Building.fromFloorStrings([
             FLOOR1,
             FLOOR1,
-            FLOOR1,
+            FLOOR2,
             FLOOR2,
         ]);
 

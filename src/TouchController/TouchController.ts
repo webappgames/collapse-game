@@ -1,4 +1,4 @@
-import TimeVector2 from './TimeVector2';
+import VectorTouch from './VectorTouch';
 import Touch from './Touch';
 import IListener from './listeners/IListener';
 import AbstractClassWithSubscribe from './AbstractClassWithSubscribe';
@@ -18,7 +18,7 @@ export default class TouchController extends AbstractClassWithSubscribe<"START" 
         listener.setListeners(this);//todo array of listeners
     }
 
-    touchStart(touch: Touch) {
+    touchStart(touch: Touch) {//todo first point
         this.ongoingTouches.push(touch);
         this.callSubscribers('START', touch);
     }
@@ -27,9 +27,10 @@ export default class TouchController extends AbstractClassWithSubscribe<"START" 
         const index = this._ongoingTouchIndexById(id);
         if (index !== -1) {
             const touch = this.ongoingTouches[index];
-            touch.move(new TimeVector2(
-                event.clientX / this.element.clientWidth,
-                event.clientY / this.element.clientHeight,
+            touch.move(new VectorTouch(
+                this,
+                event.clientX,
+                event.clientY,
                 performance.now()
             ),end);
             if (end) {

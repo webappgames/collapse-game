@@ -24,6 +24,9 @@ export default class Brick{
         this.mesh.physicsImpostor.setAngularVelocity(this._angularVelocity);
     }
 
+    get size():BABYLON.Vector3{
+        return this._size;
+    }
 
     get position():BABYLON.Vector3{
         return this._position;
