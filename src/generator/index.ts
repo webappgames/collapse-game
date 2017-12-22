@@ -2,11 +2,21 @@ import * as BABYLON from 'babylonjs';
 import * as GridBuilding from 'gridbuilding';
 import World from '../world/World';
 import Brick from '../world/Brick';
+const PALETTE = ['#e4572e','#f0f66e','#f0f8ea','#a8c686','#9d9c62'];
 
 export default class WorldGenerator{
+
+    //public colorPalette ;
+
     constructor(
         private world:World
-    ){}
+    ){
+        //this.colorPalette = [];
+    }
+
+    private _randomColor():string{
+        return PALETTE[Math.floor(Math.random()*PALETTE.length)];
+    }
 
     generateWorld() {
 
@@ -45,11 +55,12 @@ export default class WorldGenerator{
             FLOOR2,
         ]);
 
+        this._randomColor;
         building.getBricks().forEach((brick) => {
 
             new Brick(
                 this.world,
-                '#'+Math.floor(Math.random()*16777215).toString(16),
+                /*this._randomColor()*/'stone-bricks',
                 {mass:200, restitution: 0.001},
                 new BABYLON.Vector3(brick.size.x, brick.size.z, brick.size.y),
                 new BABYLON.Vector3(brick.center.x, brick.center.z, brick.center.y).add(center)

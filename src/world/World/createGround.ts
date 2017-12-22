@@ -7,6 +7,7 @@ export default function createGroundMesh(
 ):BABYLON.AbstractMesh{
 
     const groundMesh = BABYLON.Mesh.CreateGround("ground", 1000, 1000, 2, scene);
+    //groundMesh.material = materialFactory.getMaterial('#5a6643');
     groundMesh.material = materialFactory.getMaterial('grass');
     groundMesh.physicsImpostor = new BABYLON.PhysicsImpostor(
         groundMesh,
