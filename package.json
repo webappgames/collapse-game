@@ -14,7 +14,6 @@
     "prettier": "prettier --config .prettierrc --write \"src/**/*.{ts,tsx,css}\" webpack.config.js",
     "prettier-watch": "onchange --initial \"**/*.{ts,tsx,css}\" -- npm run prettier"
   },
-
   "dependencies": {
     "@types/node": "^8.0.22",
     "babylonjs": "^3.0.1-alpha",
@@ -25,5 +24,4 @@
     "onchange": "^5.0.2",
     "prettier": "^1.13.7"
   }
-
 }
